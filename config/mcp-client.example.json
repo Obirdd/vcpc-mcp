@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "vcpc": {
+      "command": "/absolute/path/to/node",
+      "args": [
+        "/absolute/path/to/vcpc-mcp/dist/server.js"
+      ],
+      "env": {
+        "VCPC_PROFILE_ALIAS": "my-test-team",
+        "VCPC_EXPECTED_TEAM": "your-exact-test-team-name",
+        "VCPC_CHROME_PATH": "/absolute/path/to/chrome",
+        "VCPC_HEADED": "1",
+        "VCPC_ALLOW_REGISTRATION": "1",
+        "VCPC_MAX_CONTESTS": "0",
+        "VCPC_TRAINING_TP_BUDGET": "0"
+      }
+    }
+  }
+}

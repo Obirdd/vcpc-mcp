@@ -1,0 +1,16 @@
+import {McpServer} from '@modelcontextprotocol/server';
+import {serveStdio} from '@modelcontextprotocol/server/stdio';
+import {z} from 'zod/v4';
+import {chromium} from 'playwright';
+import {registerScreenshot} from '../../dist/screenshots.js';
+const browser=await chromium.launch({headless:true,executablePath:process.env.VCPC_CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const page=await browser.newPage({viewport:{width:320,height:200}});await page.setContent('<body style="background:rgb(255,0,0)"><h1>VISIBLE SYNTHETIC PAGE</h1></body>');
+const s=new McpServer({name:'synthetic',version:'1'});let active=false;
+const ok=x=>({content:[{type:'text',text:JSON.stringify(x)}],structuredContent:x});
+s.registerTool('vcpc_connect',{inputSchema:z.object({}).strict()},async()=>{active=true;return ok({session_id:'synthetic-session'});});
+s.registerTool('vcpc_get_event_knowledge',{inputSchema:z.object({title:z.string().optional()}).strict()},async args=>ok({knowledge:args.title??'all'}));
+s.registerTool('vcpc_observe',{inputSchema:z.object({session_id:z.string()}).strict()},async args=>args.session_id==='synthetic-session'?ok({visible:'synthetic'}):{isError:true,content:[{type:'text',text:'invalid_session'}]});
+s.registerTool('synthetic_action',{inputSchema:z.union([z.object({session_id:z.string(),action_id:z.string(),mode:z.literal('a')}).strict(),z.object({session_id:z.string(),action_id:z.string(),mode:z.literal('b')}).strict()])},async args=>ok(args));
+s.registerTool('synthetic_crash',{inputSchema:z.object({}).strict()},async()=>{setTimeout(()=>process.exit(3),10);return ok({crashing:true});});
+registerScreenshot(s,()=>active?{id:'synthetic-session',page,read:async()=>({visible:'synthetic'})}:undefined);
+serveStdio(()=>s);process.stdin.on('end',()=>void browser.close());

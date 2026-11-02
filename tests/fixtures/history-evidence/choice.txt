@@ -1,0 +1,4 @@
+Synthetic choice fixture
+评测机说你还不够快
+卡常优化 再压一压常数 有风险
+换算法重写 推倒重来 整活

@@ -1,0 +1,64 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright';
+import {ExistingBrowser} from '../dist/existing-browser.js';
+import {Client} from '@modelcontextprotocol/client';
+import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
+
+test('two SDK clients bind and disconnect an isolated synthetic CDP tab without closing it', {timeout:30000}, async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'vcpc-existing-'));const exe=process.env.VCPC_CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+ const child=spawn(exe,[`--user-data-dir=${dir}`,'--remote-debugging-port=0','--headless=new','--no-first-run','--no-default-browser-check','--use-mock-keychain','--password-store=basic','about:blank'],{stdio:'ignore'});
+ let owner;const clients=[];
+ try{
+  let port;for(let n=0;n<100;n++){try{port=Number((await readFile(path.join(dir,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break;}catch{}await new Promise(r=>setTimeout(r,100));}assert.ok(port,'isolated Chrome did not expose its endpoint');
+  const endpoint=`http://127.0.0.1:${port}`;owner=await chromium.connectOverCDP(endpoint,{noDefaults:true});const context=owner.contexts()[0];const page=context.pages()[0];
+  await page.route('https://vcpc.snakes.moe/',route=>route.fulfill({status:200,contentType:'text/html',body:'<section class="screen--hub"><div class="team-card__identity"><h2>synthetic team</h2></div></section>'}));await page.goto('https://vcpc.snakes.moe/');
+  const duplicate=await context.newPage();await duplicate.route('https://vcpc.snakes.moe/',route=>route.fulfill({status:200,contentType:'text/html',body:'<section class="screen--hub"><div class="team-card__identity"><h2>synthetic team</h2></div></section>'}));await duplicate.goto('https://vcpc.snakes.moe/');const unrelated=await context.newPage();await unrelated.goto('data:text/html,PRIVATE_OTHER_TAB');
+  const identities=[];for(let n=0;n<2;n++){const borrowed=await ExistingBrowser.connect(endpoint);const target=borrowed.listTargets()[0].target_id;const b=borrowed.bind(target);identities.push(await borrowed.continuity(b.binding_id,true));await borrowed.close();}assert.deepEqual(identities[0],identities[1]);
+  const create=async(name)=>{const c=new Client({name,version:'1'});clients.push(c);await c.connect(new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../dist/server.js',import.meta.url))],env:{...process.env,VCPC_BROWSER_MODE:'existing-user',VCPC_CDP_ENDPOINT:endpoint},stderr:'pipe'}));return c;};
+  for(const [index,name] of ['synthetic-client-a','synthetic-client-b'].entries()){
+   const c=await create(name);const listed=(await c.listTools()).tools;const names=listed.map(t=>t.name);assert.equal(listed.find(t=>t.name==='vcpc_control_contest').inputSchema.type,'object');assert.ok(names.includes('vcpc_list_targets'));assert.ok(names.includes('vcpc_start_contest'));const denied=await c.callTool({name:'vcpc_start_contest',arguments:{session_id:'invalid',action_id:'no'}});assert.equal(denied.isError,true);
+   const list=await c.callTool({name:'vcpc_list_targets',arguments:{}});assert.equal(list.structuredContent.targets.length,2);assert.ok(!JSON.stringify(list).includes('PRIVATE_OTHER_TAB'));assert.notEqual(list.structuredContent.targets[0].target_id,list.structuredContent.targets[1].target_id);const target=list.structuredContent.targets[index].target_id;
+   const bound=await c.callTool({name:'vcpc_connect',arguments:{target_id:target}});assert.equal(bound.isError,undefined);assert.equal(bound.structuredContent.observation.identity.team_name,'synthetic team');assert.equal(bound.structuredContent.control,'read_only');
+   const session=bound.structuredContent.session_id;const release=await c.callTool({name:'vcpc_disconnect',arguments:{session_id:session}});assert.equal(release.structuredContent.status,'disconnected');assert.equal(await page.locator('h2').innerText(),'synthetic team');assert.equal(page.isClosed(),false);assert.equal(duplicate.isClosed(),false);assert.equal(unrelated.url(),'data:text/html,PRIVATE_OTHER_TAB');await c.close();
+  }
+ }finally{for(const c of clients)await c.close().catch(()=>{});await owner?.close().catch(()=>{});child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null||child.signalCode!==null)r();else child.once('exit',r);});await rm(dir,{recursive:true,force:true});}
+});
+
+test('two independent SDK servers hand off a synthetic attached contest, then reject an unseen replacement', {timeout:30000}, async()=>{
+ const fs=await import('node:fs/promises');const dir=await fs.mkdtemp(path.join(tmpdir(),'vcpc-handoff-'));const install=path.join(dir,'install');await fs.mkdir(install);await fs.cp(fileURLToPath(new URL('../dist',import.meta.url)),path.join(install,'dist'),{recursive:true});await fs.cp(fileURLToPath(new URL('../knowledge',import.meta.url)),path.join(install,'knowledge'),{recursive:true});await fs.symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),path.join(install,'node_modules'),'dir');
+ const profile=path.join(dir,'profile');await fs.mkdir(profile);const exe=process.env.VCPC_CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';const child=spawn(exe,[`--user-data-dir=${profile}`,'--remote-debugging-port=0','--headless=new','--no-first-run','--no-default-browser-check','--use-mock-keychain','--password-store=basic','about:blank'],{stdio:'ignore'});let owner;const clients=[];
+ try{
+  let port;for(let n=0;n<100;n++){try{port=Number((await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break;}catch{}await new Promise(r=>setTimeout(r,100));}assert.ok(port);
+  const endpoint=`http://127.0.0.1:${port}`;owner=await chromium.connectOverCDP(endpoint,{noDefaults:true});const page=owner.contexts()[0].pages()[0];
+  const html=`<section class="screen--contest"><div class="contest-bar__left"><b class="chip--soft">synthetic team</b></div><span id="clock-elapsed">已用 1:00</span><span id="clock-remain">4:00</span><button data-action="toggle-play">暂停</button><button data-action="set-speed" data-speed="2" onclick="this.classList.add('is-on')">2x</button><button data-action="set-speed" data-speed="4" onclick="this.classList.add('is-on')">4x</button></section>`;
+  await page.route('https://vcpc.snakes.moe/',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));await page.goto('https://vcpc.snakes.moe/');
+  const policy=path.join(dir,'policy.json');await fs.writeFile(policy,JSON.stringify({task_id:'synthetic',expected_team:'synthetic team',max_attached:1,max_starts:0,allow_attached_reward:true,allow_old_reward:false,allow_started_reward:false,expires_at:'2099-01-01T00:00:00Z',stop_after_reward:true,actions:['vcpc_control_contest']}));
+  const create=async(name,alias)=>{const c=new Client({name,version:'1'});clients.push(c);await c.connect(new StdioClientTransport({command:process.execPath,args:[path.join(install,'dist/server.js')],env:{...process.env,VCPC_BROWSER_MODE:'existing-user',VCPC_CDP_ENDPOINT:endpoint,VCPC_TASK_POLICY_FILE:policy,VCPC_PROFILE_ALIAS:alias},stderr:'pipe'}));return c;};
+  const bind=async c=>{const list=await c.callTool({name:'vcpc_list_targets',arguments:{}});const target=list.structuredContent.targets[0].target_id;const b=await c.callTool({name:'vcpc_connect',arguments:{target_id:target}});assert.equal(b.isError,undefined,JSON.stringify(b));return b.structuredContent.session_id;};
+  const a=await create('client-a','alias-a'),b=await create('client-b','alias-b');const sa=await bind(a),sb=await bind(b);
+  const control=await a.callTool({name:'vcpc_take_control',arguments:{session_id:sa}});assert.equal(control.isError,undefined,JSON.stringify(control));assert.equal(control.structuredContent.observation.phase,'contest_running',JSON.stringify(control.structuredContent.observation));
+  const busy=await b.callTool({name:'vcpc_take_control',arguments:{session_id:sb}});assert.equal(busy.isError,true);assert.match(JSON.stringify(busy),/controller_locked/);
+  const attached=await a.callTool({name:'vcpc_attach_contest',arguments:{session_id:sa}});assert.equal(attached.isError,undefined,JSON.stringify(attached));const run=attached.structuredContent.run_id;
+  const first=await a.callTool({name:'vcpc_control_contest',arguments:{session_id:sa,action_id:'speed-a',operation:'speed',speed:2}});assert.equal(first.isError,undefined,JSON.stringify(first));
+  const release=await a.callTool({name:'vcpc_release_control',arguments:{session_id:sa}});assert.equal(release.structuredContent.status,'released');
+  const takeover=await b.callTool({name:'vcpc_take_control',arguments:{session_id:sb}});assert.equal(takeover.isError,undefined,JSON.stringify(takeover));const again=await b.callTool({name:'vcpc_attach_contest',arguments:{session_id:sb}});assert.equal(again.structuredContent?.run_id,run,JSON.stringify(again));
+  const second=await b.callTool({name:'vcpc_control_contest',arguments:{session_id:sb,action_id:'speed-b',operation:'speed',speed:4}});assert.equal(second.isError,undefined,JSON.stringify(second));
+  const stale=await a.callTool({name:'vcpc_control_contest',arguments:{session_id:sa,action_id:'stale',operation:'speed',speed:2}});assert.equal(stale.isError,true);
+  const revoke=await a.callTool({name:'vcpc_revoke_control',arguments:{}});assert.equal(revoke.structuredContent.status,'revocation_requested');let reacquire;for(let n=0;n<100;n++){reacquire=await a.callTool({name:'vcpc_take_control',arguments:{session_id:sa}});if(!reacquire.isError)break;await new Promise(r=>setTimeout(r,20));}assert.equal(reacquire.isError,undefined,JSON.stringify(reacquire));
+  const old=await b.callTool({name:'vcpc_control_contest',arguments:{session_id:sb,action_id:'revoked-b',operation:'speed',speed:2}});assert.equal(old.isError,true);const resumed=await a.callTool({name:'vcpc_attach_contest',arguments:{session_id:sa}});assert.equal(resumed.structuredContent?.run_id,run,JSON.stringify(resumed));await a.callTool({name:'vcpc_release_control',arguments:{session_id:sa}});await b.callTool({name:'vcpc_release_control',arguments:{session_id:sb}});
+  // A natural visible result still belongs to the registered run and can be handed off.
+  await page.evaluate(()=>{window.savedContest=document.querySelector('.screen--contest');window.savedContest.remove();const result=document.createElement('section');result.className='screen--result';result.innerHTML='<div class="topboard-result"><div class="panel__head"><span class="mono">synthetic team</span></div></div><div class="result-rank">#1</div>';document.body.append(result);});
+  const finalControl=await b.callTool({name:'vcpc_take_control',arguments:{session_id:sb}});assert.equal(finalControl.isError,undefined,JSON.stringify(finalControl));const finalAttach=await b.callTool({name:'vcpc_attach_contest',arguments:{session_id:sb}});assert.equal(finalAttach.structuredContent?.run_id,run,JSON.stringify(finalAttach));assert.equal(finalAttach.structuredContent?.observation?.phase,'final');await b.callTool({name:'vcpc_release_control',arguments:{session_id:sb}});
+  // A later return to contest on the same document is a possible different run.
+  await page.evaluate(()=>{document.querySelector('.screen--result').remove();document.body.append(window.savedContest);});
+  const onceMore=await a.callTool({name:'vcpc_take_control',arguments:{session_id:sa}});assert.equal(onceMore.isError,undefined,JSON.stringify(onceMore));const rejected=await a.callTool({name:'vcpc_attach_contest',arguments:{session_id:sa}});assert.equal(rejected.isError,true);assert.match(JSON.stringify(rejected),/run_continuity_unknown/);
+  await a.callTool({name:'vcpc_disconnect',arguments:{session_id:sa}});assert.equal(page.isClosed(),false);
+  await page.reload();const witness=await ExistingBrowser.connect(endpoint);const wb=witness.bind(witness.listTargets()[0].target_id);await witness.continuity(wb.binding_id,true,true);await page.evaluate(()=>{const screen=document.querySelector('.screen--contest');const result=document.createElement('section');result.className='screen--result';document.body.append(result);screen.remove();result.remove();document.body.append(screen);});assert.equal((await witness.continuity(wb.binding_id)).witness_invalid,true);await witness.close();
+ }finally{for(const c of clients)await c.close().catch(()=>{});await owner?.close().catch(()=>{});child.kill('SIGTERM');await new Promise(r=>{if(child.exitCode!==null||child.signalCode!==null)r();else child.once('exit',r);});await fs.rm(dir,{recursive:true,force:true});}
+});

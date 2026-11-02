@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "catalog_revision": 2,
+  "catalog_sha256": "bb054da067315e1168220b316a13282150f009962a0e55e56efe682475da7983",
+  "coverage": {
+    "titles": 35,
+    "variants": 36,
+    "observations": 1094
+  },
+  "source_ledgers": [
+    {
+      "source": "data/phase3/actions.jsonl",
+      "sha256": "d65d8466c70b6836cd585f37cdf8fc936d5b8c507deb9e333e8138449066fe8f",
+      "rows": 292,
+      "confirmed_events": 25,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/cycle-09-1101/actions.jsonl",
+      "sha256": "f1fe16557283242e45215b139a14d892dab777ac49123e94d63a0cac9ce617e2",
+      "rows": 306,
+      "confirmed_events": 23,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/mcp-verify-1031/actions.jsonl",
+      "sha256": "f64d587b745ea8620d7667e0d8784011c59ef5a18c8a34ac6bc347a2b9681fa0",
+      "rows": 116,
+      "confirmed_events": 8,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/observable-universe-test-3/actions.jsonl",
+      "sha256": "86b2488f5f1bbe08a884b7ffe548474243e03f5558d1652d46364795fe7f696b",
+      "rows": 9475,
+      "confirmed_events": 658,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/observable-universe-test-4/actions.jsonl",
+      "sha256": "bf94b99de3b4f1a042ac0cbc582d5f6bfbbbb973af033be5a6bb6ff217eb39e1",
+      "rows": 816,
+      "confirmed_events": 0,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/t4-controls-1101/actions.jsonl",
+      "sha256": "c52e756b2e04e75891fdb9ad53bcd30a19140115da3082ec7601392851b72b8f",
+      "rows": 126,
+      "confirmed_events": 8,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/visible-08-final/actions.jsonl",
+      "sha256": "bd1f1999ec723d55d5f889c6022015c1e61e3d40a7c5a0aa77fe28d830a03e57",
+      "rows": 292,
+      "confirmed_events": 24,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/world-finals-test-1/actions.jsonl",
+      "sha256": "f33c05afa230877677839656a018aa5d17dd45bcfcc643bf1deba9329ac3bb4b",
+      "rows": 2558,
+      "confirmed_events": 143,
+      "skipped": {}
+    },
+    {
+      "source": "data/profiles/world-finals-test-2/actions.jsonl",
+      "sha256": "79bc9b8560ea36e73e06273946e651a695ee3f60ebeea8124eb4279edd80cace",
+      "rows": 1688,
+      "confirmed_events": 116,
+      "skipped": {}
+    }
+  ],
+  "deduplication": "A run_id/action_id identifies the same MCP event across its original ledger and exported datasets."
+}

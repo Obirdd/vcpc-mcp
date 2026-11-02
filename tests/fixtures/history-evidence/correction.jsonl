@@ -1,0 +1,2 @@
+{"event_id":"synthetic-original","run_id":"synthetic-before"}
+{"event_id":"synthetic-correction","payload":{"corrects_event_id":"synthetic-original","corrected_run_id":"synthetic-after"}}

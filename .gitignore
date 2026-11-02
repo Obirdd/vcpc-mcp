@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.profile/
+
+data/phase3/controller.lock
+data/phase3/browser.json
+.profile-stage3/
+data/phase3/browser-phase3-original.json
+data/phase3/actions.jsonl
+data/phase3/mcp-trace.jsonl
+.profiles/
+data/profiles/
+data/phase5/
+evidence/phase5/browser-before-recovery.json
+
+data/existing-user/
+data/phase6-test/
+data/phase6-personal/
+
+# Private runtime state and generated exports
+data/
+evidence/
+release/
+*.log
+.DS_Store

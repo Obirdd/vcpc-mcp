@@ -1,0 +1,4 @@
+import {spawn} from 'node:child_process';import {writeFileSync} from 'node:fs';
+const [server,audit]=process.argv.slice(2);const p=spawn(process.execPath,[server],{stdio:['pipe','pipe','pipe']});let buffer='',count=0,invalid=0,protocol_version=null;
+process.stdin.pipe(p.stdin);p.stderr.pipe(process.stderr);p.stdout.on('data',chunk=>{process.stdout.write(chunk);buffer+=chunk.toString();let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+1);try{const obj=JSON.parse(line);if(obj.jsonrpc!=='2.0')invalid++;if(obj.result?.protocolVersion)protocol_version=obj.result.protocolVersion;}catch{invalid++;}count++;}});
+p.on('exit',()=>{if(buffer.trim())invalid++;writeFileSync(audit,JSON.stringify({protocol_lines:count,invalid_or_business_lines:invalid,protocol_version}));process.exitCode=invalid?1:0;});

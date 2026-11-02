@@ -1,0 +1,14 @@
+# Project-local example. Replace the executable, project path and team.
+# Limits are cumulative for this dedicated profile; zero permits no new starts or paid training.
+[mcp_servers.vcpc]
+command = "/absolute/path/to/node"
+args = ["/absolute/path/to/vcpc-mcp/dist/server.js"]
+
+[mcp_servers.vcpc.env]
+VCPC_PROFILE_ALIAS = "my-test-team"
+VCPC_EXPECTED_TEAM = "your-exact-test-team-name"
+VCPC_CHROME_PATH = "/absolute/path/to/chrome"
+VCPC_HEADED = "1"
+VCPC_ALLOW_REGISTRATION = "0" # set to 1 only for an explicitly authorized fresh profile
+VCPC_MAX_CONTESTS = "0"
+VCPC_TRAINING_TP_BUDGET = "0"
